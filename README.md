@@ -5,17 +5,17 @@
 В решении задания старался придерживаться best-practices, там где то возможно и не подвергать код излишнему усложнению.
 
 #### Ранбук:
-1. git clone https://github.com/gridwave/ansible-test.git
+1. git clone https://github.com/gridwave/ansible_test.git
 2. cd ansible-test
 3. Вносим исправления в *inventory/test-app.yml*, а именно, меняем IP-адрес целевого сервера в переменной *ansible_ssh_host*, добавляем или меняем переменные критичные для корректного подключения к серверу и исполнения python-кода (*ansible_ssh_|user* и пр.).
 4. В целях экономии времени, переменные отвечающие за настройку сервера находятся в файле главного плейбука. Это не является best-practice, и в будущем они должны быть перенесены в *group_vars* или *host_vars*. Исключение составляет переменная **postgresql_users_password** которая зашифрована и подключается из отдельного файла *secrets.yml*.
 Переменные которые должны быть изменены:
-**nginx_vhosts.server_name**
-**nginx_vhosts.filename**
-**nginx_vhosts.extra_parameters.ssl_certificate**
-**nginx_vhosts.extra_parameters.ssl_certificate_key**
-**certbot_admin_email**
-**certbot_certs.domains**
+**nginx_vhosts.server_name**,
+**nginx_vhosts.filename**,
+**nginx_vhosts.extra_parameters.ssl_certificate**,
+**nginx_vhosts.extra_parameters.ssl_certificate_key**,
+**certbot_admin_email**,
+**certbot_certs.domains**,
 **test_app_host**
 5. ansible-galaxy role install -r requirements.yml
 6. ansible-playbook -i inventory/test-app.yml test-app.yml --ask-vault-pass
