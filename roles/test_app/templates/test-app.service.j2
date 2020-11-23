@@ -1,0 +1,14 @@
+[Unit]
+Description=gunicorn daemon
+After=network.target
+
+[Service]
+User={{ test_app_user }}
+Group={{ test_app_group }}
+EnvironmentFile={{ test_app_conf_path }}
+EnvironmentFile={{ test_app_sec_conf_path }}
+WorkingDirectory={{ test_app_dir }}
+ExecStart={{ test_app_dir }}/venv/bin/gunicorn --bind 127.0.0.1:8001 django_testproject.wsgi:application
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,101 @@
+---
+- name: Install common dependencies.
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - git
+    - openssl
+    - python3-pip
+    - virtualenv
+
+- name: Ensure application dir exists.
+  file:
+    path: "{{ test_app_dir | dirname }}"
+    state: directory
+    mode: 0755
+
+- name: Clone git repo with test-app.
+  git:
+    repo: "{{ test_app_git_repo }}"
+    dest: "{{ test_app_dir }}"
+    force: true
+
+- name: Create virtualenv and install app dependencies.
+  pip:
+    requirements: "{{ test_app_dir }}/requirements.txt"
+    virtualenv: "{{ test_app_dir }}/venv"
+    virtualenv_python: python3
+
+- name: Install gunicorn.
+  pip:
+    name: "gunicorn"
+    virtualenv: "{{ test_app_dir }}/venv"
+    virtualenv_python: python3
+
+- name: Create group for test-app.
+  group:
+    name: "{{ test_app_group }}"
+
+- name: Create user for test-app.
+  user:
+    name: "{{ test_app_user }}"
+    group: "{{ test_app_group }}"
+    create_home: false
+    shell: /usr/bin/false
+
+- name: Generate secret key.
+  shell:
+    openssl rand -hex 32
+  register: secret_key
+
+- name: Set fact with secret key
+  set_fact:
+    test_app_secret_key: "{{ secret_key.stdout }}"
+
+- name: Ensure environment variables file is present.
+  template:
+    src: test-app.env.j2
+    dest: "{{ test_app_conf_path }}"
+    mode: "{{ test_app_conf_mode }}"
+  notify: restart test-app
+
+- name: Ensure secure environment variables file is present.
+  template:
+    src: test-app-sec.env.j2
+    dest: "{{ test_app_sec_conf_path }}"
+    mode: "{{ test_app_sec_conf_mode }}"
+    force: "{{ test_app_sec_conf_overwrite }}"
+  notify: restart test-app
+
+- name: Ensure test-app systemd target is configured.
+  template:
+    src: test-app.service.j2
+    dest: "{{ test_app_service_path }}"
+    mode: "{{ test_app_service_mode }}"
+  notify: restart test-app
+
+- name: Ensure test-app is running and enabled on boot.
+  service:
+    name: "test-app"
+    state: "started"
+    enabled: true
+  notify: restart test-app
+
+- name: Get manage.py application executable (workaround for ansible 2.x).
+  file:
+    path: "{{ test_app_dir }}/manage.py"
+    mode: 0755
+
+- name: Migrate database
+  django_manage:
+    command: "migrate --noinput"
+    app_path: "{{ test_app_dir }}"
+    virtualenv: "{{ test_app_dir }}/venv"
+  environment:
+    REDIS_ADDR: "{{ test_app_redis_addr }}"
+    SECRET_KEY: "{{ test_app_secret_key }}"
+    POSTGRES_HOST: "{{ test_app_postgres_host }}"
+    POSTGRES_DB: "{{ test_app_postgres_db }}"
+    POSTGRES_USER: "{{ test_app_postgres_db_user }}"
+    POSTGRES_PASSWORD: "{{ test_app_postgres_db_password }}"

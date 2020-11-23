@@ -1,0 +1,7 @@
+---
+
+apps:
+  hosts:
+    test-app:
+      ansible_ssh_host: 159.203.173.201
+      ansible_user: root

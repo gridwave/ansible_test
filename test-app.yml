@@ -1,0 +1,69 @@
+---
+
+- hosts:
+    - "test-app"
+  gather_facts: true
+  become: true
+  vars_files:
+    - secrets.yml
+  roles:
+    - role: geerlingguy.redis
+    - role: geerlingguy.postgresql
+      postgresql_databases:
+        - name: "test-app-db"
+          owner: "test-app-db-user"
+      postgresql_users:
+        - name: "test-app-db"
+          password: "{{ postgresql_users_password }}"
+    - role: geerlingguy.nginx
+      nginx_remove_default_vhost: true
+      nginx_vhosts:
+        - listen: "443 ssl http2"
+          server_name: "159-203-173-201.sslip.io"
+          root: "/opt/test-app/test-django-app/django_testproject"
+          filename: "159-203-173-201.sslip.io.conf"
+          state: "present"
+          extra_parameters: |
+            location / {
+              try_files $uri @proxy_to_app;
+            }
+
+            location @proxy_to_app {
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              proxy_set_header Host $http_host;
+              proxy_redirect off;
+              proxy_pass http://test-app;
+            }
+
+            ssl_certificate /etc/letsencrypt/live/159-203-173-201.sslip.io/fullchain.pem;
+            ssl_certificate_key /etc/letsencrypt/live/159-203-173-201.sslip.io/privkey.pem;
+            ssl_protocols       TLSv1.1 TLSv1.2;
+            ssl_ciphers         HIGH:!aNULL:!MD5;
+
+            # Redirect non-https traffic to https
+            if ($scheme != "https") {
+              return 301 https://$host$request_uri;
+            }
+
+      nginx_upstreams:
+        - name: test-app
+          servers: {
+            127.0.0.1:8001
+          }
+    - role: geerlingguy.certbot
+      certbot_create_if_missing: true
+      certbot_admin_email: "loesswork@gmail.com"
+      certbot_certs:
+        - domains:
+            - "159-203-173-201.sslip.io"
+    - role: test_app
+      test_app_git_repo: "https://github.com/atrucks/test-django-app.git"
+      test_app_postgres_host: "127.0.0.1"
+      test_app_postgres_db: "test-app-db"
+      test_app_postgres_db_user: "test-app-db-user"
+      test_app_postgres_db_password: "{{ postgresql_users_password }}"
+      test_app_host: "159-203-173-201.sslip.io"
+      test_app_redis_addr: "127.0.0.1"
+      test_app_sec_conf_overwrite: false
+
